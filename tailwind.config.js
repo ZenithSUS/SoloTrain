@@ -14,6 +14,9 @@ module.exports = {
         success: "#38B000",
         formbg: "#1A1A1A",
         formborder: "#2A2A2A",
+        inputbg: "#1a1a2e",
+        inputborder: "#6c63ff",
+        inputtext: "#e0e0ff",
       }
     },
   },

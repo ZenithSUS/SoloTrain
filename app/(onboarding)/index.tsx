@@ -52,7 +52,14 @@ const Onboarding = () => {
       />
 
       {/*Welcome Text */}
-      <Text className="text-shadow-lg text-2xl font-bold text-accent shadow-primary">
+      <Text
+        className="text-2xl font-bold text-primtext"
+        style={{
+          textShadowColor: "#3AA6F5",
+          textShadowOffset: { width: 0, height: 4 },
+          textShadowRadius: 12,
+        }}
+      >
         "Welcome to SoloTrain!"
       </Text>
 

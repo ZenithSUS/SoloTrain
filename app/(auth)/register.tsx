@@ -1,9 +1,10 @@
 import SoloTrain from "@/assets/images/SoloTrain.png";
 import ThemeText from "@/components/themetext";
+import { useCreateAccount } from "@/hooks/useAccount";
 import { registerSchema } from "@/utils/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Image,
@@ -21,6 +22,12 @@ import { z } from "zod";
 type RegisterType = z.infer<typeof registerSchema>;
 
 const Register = () => {
+  // Local State
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+
+  // Register Form State
   const registerForm = useForm<RegisterType>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -30,8 +37,23 @@ const Register = () => {
     },
   });
 
-  const handleRegister = () => {
+  // Hooks
+  const { mutateAsync: createAccount } = useCreateAccount();
+
+  // Handle Register
+  const handleRegister = async () => {
     console.log(registerForm.getValues());
+    try {
+      setIsSubmitting(true);
+      await createAccount(registerForm.getValues());
+    } catch (error) {
+      console.error("Error creating account:", error);
+      setApiError(
+        "There was an error creating your account. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,7 +115,7 @@ const Register = () => {
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
-                  secureTextEntry
+                  secureTextEntry={!passwordVisible}
                 />
               )}
             />
@@ -120,7 +142,7 @@ const Register = () => {
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
-                  secureTextEntry
+                  secureTextEntry={!passwordVisible}
                 />
               )}
             />
