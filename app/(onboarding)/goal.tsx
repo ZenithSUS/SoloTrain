@@ -1,7 +1,11 @@
+import { CustomCheckbox } from "@/components/custom-checkbox";
 import ThemeText from "@/components/themetext";
 import { useOnboardingContext } from "@/context/onboarding";
+import { useSimpleAnimation } from "@/hooks/useSimpleAnimation";
+import { useCreateUser } from "@/hooks/useUser";
+import { getSecure } from "@/services/secure-store";
+import { User } from "@/types/user";
 import { getButtonClasses } from "@/utils/get-button-classes";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -11,47 +15,6 @@ import {
   Text,
   View,
 } from "react-native";
-
-// Your original animation hook (this is not causing the warning)
-function useSimpleAnimation(duration = 300) {
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  const animate = (callback: () => void) => {
-    setIsAnimating(true);
-    setTimeout(() => {
-      callback();
-      setIsAnimating(false);
-    }, duration);
-  };
-
-  return { isAnimating, animate };
-}
-
-// Custom Checkbox Component
-const CustomCheckbox = ({
-  isChecked = false,
-  size = 24,
-  color = "#3AA6F5",
-}) => {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderWidth: 2,
-        borderColor: color,
-        borderRadius: size / 2,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: isChecked ? color : "transparent",
-      }}
-    >
-      {isChecked && (
-        <Ionicons name="checkmark" size={size * 0.7} color="white" />
-      )}
-    </View>
-  );
-};
 
 const Goal = () => {
   // Onboarding Context
@@ -63,7 +26,11 @@ const Goal = () => {
   const { isAnimating: isBackAnimating, animate: animateBack } =
     useSimpleAnimation(250);
 
+  // Hooks
+  const { mutateAsync: createUserInfo, isPending } = useCreateUser();
+
   // Local State
+  const [apiError, setApiError] = useState<string | null>(null);
   const [localGoal, setLocalGoal] = useState(data.goal || "");
   const [buttonStates, setButtonStates] = useState({
     backButton: "visible",
@@ -71,20 +38,32 @@ const Goal = () => {
   });
 
   // Function to navigate to the next screen
-  const submit = () => {
-    if (isSubmitAnimating || !localGoal) return;
+  const submit = async () => {
+    try {
+      if (isSubmitAnimating || !localGoal || !data) return;
+      setApiError("");
+      setData({ ...data, goal: localGoal });
 
-    // Update context data with selected goal
-    setData({ ...data, goal: localGoal });
+      setButtonStates((prev) => ({ ...prev, submitButton: "hiding" }));
 
-    setButtonStates((prev) => ({ ...prev, submitButton: "hiding" }));
+      const finalData: User = {
+        accountId: (await getSecure("id")) || "",
+        fullName: data.name || "",
+        age: data.age || 0,
+        height_cm: data.height || 0,
+        weight_kg: data.weight || 0,
+        goal: localGoal,
+      };
 
-    animateSubmit(() => {
-      setButtonStates((prev) => ({ ...prev, submitButton: "visible" }));
-      console.log({ ...data, goal: localGoal });
-      // Add your navigation logic here
-      // router.push("/(onboarding)/next-screen");
-    });
+      await createUserInfo(finalData);
+    } catch (error) {
+      console.error("Unexpected error in submit:", error);
+      setApiError("Unexpected error. Please try again.");
+    } finally {
+      animateSubmit(() => {
+        setButtonStates((prev) => ({ ...prev, submitButton: "visible" }));
+      });
+    }
   };
 
   const back = () => {
@@ -143,7 +122,7 @@ const Goal = () => {
 
       {/* Description Text */}
       <ThemeText type="subtext" size="sm">
-        "Define your quest and transform your fate."
+        {`"Define your quest and transform your fate."`}
       </ThemeText>
 
       {/* Goal Selection Options */}
@@ -158,6 +137,13 @@ const Goal = () => {
           <ThemeText type="title">{goal}</ThemeText>
         </Pressable>
       ))}
+
+      {/* Error Text */}
+      {apiError && (
+        <View className="w-full">
+          <Text className="text-center text-error">{apiError}</Text>
+        </View>
+      )}
 
       {/* Navigation Buttons */}
       <View className="mt-2 w-full flex-row items-center justify-between gap-4">
@@ -185,7 +171,7 @@ const Goal = () => {
               isSubmitAnimating,
             )}
             onPress={submit}
-            disabled={isSubmitAnimating || !localGoal}
+            disabled={isSubmitAnimating || !localGoal || isPending}
             style={{ backgroundColor: localGoal ? "#5A31D4" : "#1A1A1A" }}
           >
             <View className="items-center">

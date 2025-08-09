@@ -177,7 +177,7 @@ export default function IndexScreen() {
             // Don't prevent navigation due to BGM stop error
           }
 
-          router.push("/(onboarding)");
+          router.push("/(auth)/register");
         } catch (navigationError) {
           const errorMessage =
             navigationError instanceof Error

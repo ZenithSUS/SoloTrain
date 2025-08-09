@@ -1,15 +1,24 @@
 import axios from "axios";
+import { Platform } from "react-native";
+import { getSecure } from "./secure-store";
 
+// Create an axios instance
 const client = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
 });
 
 // Add a request interceptor
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
+  // Get the token
+  const token =
+    Platform.OS === "web" ? localStorage.getItem("token") : getSecure("token");
+
+  // Add the token to the request headers if it exists
+  if (token && token !== null) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Add the API key to the request headers
   config.headers["x-api-key"] = process.env.EXPO_PUBLIC_API_KEY;
 
   return config;
@@ -17,12 +26,7 @@ client.interceptors.request.use((config) => {
 
 // Add a response interceptor
 client.interceptors.response.use(
-  (response) => {
-    // Display a success message
-    console.log(response.data);
-    console.log(response.status);
-    return response;
-  },
+  (response) => response,
   (error) => Promise.reject(error),
 );
 

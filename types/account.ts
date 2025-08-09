@@ -12,3 +12,5 @@ export type CreateAccount = Omit<
   Account,
   "_id" | "createdAt" | "lastLogin" | "status"
 >;
+
+export type LoginAccount = Pick<Account, "email" | "password">;

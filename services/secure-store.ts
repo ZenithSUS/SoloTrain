@@ -1,22 +1,43 @@
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
-// Function to store data
-export function storeSecure(key: string, value: string): void {
-  SecureStore.setItemAsync(key, value).catch((error) =>
-    console.log("Error storing data", error),
-  );
+// Store data
+export async function storeSecure(key: string, value: string) {
+  try {
+    if (Platform.OS === "web") {
+      // Fallback to localStorage on web
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  } catch (error) {
+    console.error("Error storing data", error);
+  }
 }
 
-// Function to get data
-export function getSecure(key: string): void {
-  SecureStore.getItemAsync(key).catch((error) =>
-    console.log("Error getting data", error),
-  );
+// Get data
+export async function getSecure(key: string): Promise<string | null> {
+  try {
+    if (Platform.OS === "web") {
+      return localStorage.getItem(key);
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  } catch (error) {
+    console.error("Error getting data", error);
+    return null;
+  }
 }
 
-// Function to remove data
-export function removeSecure(key: string): void {
-  SecureStore.deleteItemAsync(key).catch((error) =>
-    console.log("Error removing data", error),
-  );
+// Remove data
+export async function removeSecure(key: string) {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  } catch (error) {
+    console.error("Error removing data", error);
+  }
 }

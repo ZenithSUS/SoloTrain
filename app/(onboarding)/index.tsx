@@ -19,6 +19,8 @@ const Onboarding = () => {
   const next = () => {
     if (isAnimating) return;
 
+    setButtonState("hiding");
+
     // Animate to next screen
     animateNext(() => {
       router.push("/(onboarding)/name");

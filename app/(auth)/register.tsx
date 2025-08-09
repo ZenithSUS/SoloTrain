@@ -1,6 +1,6 @@
 import SoloTrain from "@/assets/images/SoloTrain.png";
 import ThemeText from "@/components/themetext";
-import { useCreateAccount } from "@/hooks/useAccount";
+import { useLogin, useRegister } from "@/hooks/useAuth";
 import { registerSchema } from "@/utils/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "expo-router";
@@ -38,14 +38,31 @@ const Register = () => {
   });
 
   // Hooks
-  const { mutateAsync: createAccount } = useCreateAccount();
+  const { mutateAsync: register } = useRegister();
+  const { mutateAsync: login } = useLogin();
 
   // Handle Register
   const handleRegister = async () => {
-    console.log(registerForm.getValues());
     try {
+      setApiError(null);
       setIsSubmitting(true);
-      await createAccount(registerForm.getValues());
+
+      const registerData = {
+        email: registerForm.getValues().email,
+        password: registerForm.getValues().password,
+      };
+
+      await register(registerData);
+
+      const loginData = {
+        email: registerForm.getValues().email,
+        password: registerForm.getValues().password,
+      };
+
+      await login(loginData);
+
+      registerForm.reset();
+      // router.push("/(onboarding)");
     } catch (error) {
       console.error("Error creating account:", error);
       setApiError(
@@ -158,12 +175,18 @@ const Register = () => {
           {/* Register Button */}
           <View className="mt-2 flex items-center gap-2">
             <Pressable
-              className="w-full rounded bg-primary px-2 py-2"
+              className="w-full rounded bg-primary px-2 py-2 disabled:cursor-not-allowed disabled:opacity-50"
               onPress={registerForm.handleSubmit(handleRegister)}
+              disabled={isSubmitting}
             >
               <Text className="text-center text-white">Register</Text>
             </Pressable>
           </View>
+
+          {/* Error Message */}
+          {apiError && (
+            <Text className="text-center text-red-500">{apiError}</Text>
+          )}
         </View>
 
         {/* Login Link */}
