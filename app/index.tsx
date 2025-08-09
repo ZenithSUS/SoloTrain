@@ -2,11 +2,11 @@ import SoloTrain from "@/assets/images/SoloTrain.png";
 import ProgressAnimation from "@/components/progress-animation";
 import ThemeText from "@/components/themetext";
 import { playBGM, prepareBGM, stopBGM } from "@/hooks/useBGM";
+import { getButtonClasses } from "@/utils/get-button-classes";
 import { router } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import {
-  Animated,
-  Dimensions,
+  Alert,
   Image,
   ImageSourcePropType,
   Pressable,
@@ -14,77 +14,232 @@ import {
   View,
 } from "react-native";
 
-const { width: screenWidth } = Dimensions.get("window");
-
 export default function IndexScreen() {
+  // Local states
   const [isWelcomePressed, setIsWelcomePressed] = useState(false);
   const [isAnimating, setIsAnimating] = useState({
     isAnimatingWelcome: false,
     isAnimatingSoloTrain: false,
   });
-  const buttonWidthAnim = useRef(new Animated.Value(1)).current;
-  const buttonWidthAnim2 = useRef(new Animated.Value(1)).current;
+  const [buttonStates, setButtonStates] = useState({
+    welcomeButton: "visible",
+    trainingButton: "visible",
+  });
+  const [bgmError, setBgmError] = useState<string | null>(null);
 
-  // Function to open SoloTrain app
-  const openSoloTrain = useCallback(async () => {
+  // Enhanced BGM loading with comprehensive error handling
+  const loadBGMWithErrorHandling = async (): Promise<boolean> => {
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        setBgmError(null);
+
+        // Add timeout to prevent hanging
+        const prepareBGMWithTimeout = () => {
+          return new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error("BGM preparation timeout after 10 seconds"));
+            }, 10000);
+
+            prepareBGM(require("@/assets/sounds/SymphonicSuite-Lv.8.mp3"))
+              .then(() => {
+                clearTimeout(timeout);
+                resolve();
+              })
+              .catch((error) => {
+                clearTimeout(timeout);
+                reject(error);
+              });
+          });
+        };
+
+        await prepareBGMWithTimeout();
+        await playBGM();
+
+        console.log("BGM loaded and playing successfully");
+        return true;
+      } catch (error) {
+        retryCount++;
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown BGM error";
+
+        console.warn(`BGM loading attempt ${retryCount} failed:`, errorMessage);
+
+        if (retryCount >= maxRetries) {
+          setBgmError(
+            `Failed to load background music after ${maxRetries} attempts: ${errorMessage}`,
+          );
+
+          // Show user-friendly error message
+          Alert.alert(
+            "Audio Loading Issue",
+            "Background music couldn't be loaded, but you can continue without it.",
+            [{ text: "Continue", style: "default" }],
+          );
+
+          console.error("All BGM loading attempts failed:", errorMessage);
+          return false;
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+
+    return false;
+  };
+
+  // Function to open SoloTrain app - Enhanced with better error handling
+  const openSoloTrain = async () => {
     if (isWelcomePressed || isAnimating.isAnimatingWelcome) return;
 
-    setIsAnimating((prev) => ({
-      ...prev,
-      isAnimatingWelcome: true,
-    }));
-    Animated.timing(buttonWidthAnim, {
-      toValue: 0,
-      duration: 500,
-      useNativeDriver: false,
-    }).start(async () => {
-      await prepareBGM(require("@/assets/sounds/SymphonicSuite-Lv.8.mp3"));
-      await playBGM();
-      setIsWelcomePressed(true);
+    try {
+      setIsAnimating((prev) => ({
+        ...prev,
+        isAnimatingWelcome: true,
+      }));
+
+      setButtonStates((prev) => ({ ...prev, welcomeButton: "hiding" }));
+
+      setTimeout(async () => {
+        try {
+          // Use enhanced BGM loading function
+          const bgmLoaded = await loadBGMWithErrorHandling();
+
+          if (!bgmLoaded) {
+            console.log("Continuing without BGM due to loading failure");
+          }
+
+          // Continue with app flow regardless of BGM success/failure
+          setIsWelcomePressed(true);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Unknown error in openSoloTrain";
+          console.error("Unexpected error in openSoloTrain:", errorMessage);
+
+          setBgmError(`Unexpected error: ${errorMessage}`);
+
+          // Still allow user to continue
+          setIsWelcomePressed(true);
+        } finally {
+          // Always reset animation state
+          setIsAnimating((prev) => ({
+            ...prev,
+            isAnimatingWelcome: false,
+          }));
+          setButtonStates((prev) => ({ ...prev, welcomeButton: "visible" }));
+        }
+      }, 300);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unknown error in openSoloTrain outer catch";
+      console.error("Error in openSoloTrain outer catch:", errorMessage);
+
+      // Reset animation state on any error
       setIsAnimating((prev) => ({
         ...prev,
         isAnimatingWelcome: false,
       }));
-    });
-  }, [setIsWelcomePressed, prepareBGM, playBGM, isWelcomePressed, isAnimating]);
+      setButtonStates((prev) => ({ ...prev, welcomeButton: "visible" }));
 
+      setBgmError(`Setup error: ${errorMessage}`);
+    }
+  };
+
+  // Enhanced navigation with safer BGM cleanup
   const navigateToRegister = async () => {
-    if (isAnimating.isAnimatingSoloTrain) return; // Prevent multiple presses during animation
+    if (isAnimating.isAnimatingSoloTrain) return;
 
     setIsAnimating((prev) => ({
       ...prev,
       isAnimatingSoloTrain: true,
     }));
 
-    // Animate button width from full to 0
-    Animated.timing(buttonWidthAnim2, {
-      toValue: 0,
-      duration: 500, // Animation duration in milliseconds
-      useNativeDriver: false, // Width animation requires native driver to be false
-    }).start(async () => {
-      // This callback runs after animation completes
-      await stopBGM();
-      router.push("/(auth)/register");
-    });
+    try {
+      setButtonStates((prev) => ({ ...prev, trainingButton: "hiding" }));
+
+      setTimeout(async () => {
+        try {
+          // Safe BGM cleanup with error handling
+          try {
+            await stopBGM();
+          } catch (bgmStopError) {
+            console.warn(
+              "Error stopping BGM (continuing anyway):",
+              bgmStopError,
+            );
+            // Don't prevent navigation due to BGM stop error
+          }
+
+          router.push("/(onboarding)");
+        } catch (navigationError) {
+          const errorMessage =
+            navigationError instanceof Error
+              ? navigationError.message
+              : "Navigation failed";
+          console.error("Error in navigation:", errorMessage);
+
+          Alert.alert(
+            "Navigation Error",
+            "There was an issue navigating to the next screen. Please try again.",
+            [{ text: "OK", style: "default" }],
+          );
+
+          // Reset states on navigation error
+          setIsAnimating((prev) => ({
+            ...prev,
+            isAnimatingSoloTrain: false,
+          }));
+          setButtonStates((prev) => ({ ...prev, trainingButton: "visible" }));
+        }
+      }, 200);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unknown error in navigateToRegister";
+      console.error("Error in navigateToRegister:", errorMessage);
+
+      setIsAnimating((prev) => ({
+        ...prev,
+        isAnimatingSoloTrain: false,
+      }));
+      setButtonStates((prev) => ({ ...prev, trainingButton: "visible" }));
+    }
   };
 
+  // Enhanced login navigation with safer BGM cleanup
   const navigateToLogin = async () => {
-    await stopBGM();
-    router.push("/(auth)/login");
+    try {
+      // Safe BGM cleanup
+      try {
+        await stopBGM();
+      } catch (bgmStopError) {
+        console.warn(
+          "Error stopping BGM during login navigation (continuing anyway):",
+          bgmStopError,
+        );
+      }
+
+      router.push("/(auth)/login");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Login navigation failed";
+      console.error("Error in navigateToLogin:", errorMessage);
+
+      Alert.alert(
+        "Navigation Error",
+        "There was an issue navigating to login. Please try again.",
+        [{ text: "OK", style: "default" }],
+      );
+    }
   };
-
-  // Calculate button width based on animation value
-  const animatedButtonWidth = buttonWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, screenWidth - 40], // 40px for padding (20px each side)
-    extrapolate: "clamp",
-  });
-
-  const animatedButtonWidth2 = buttonWidthAnim2.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, screenWidth - 40], // 40px for padding (20px each side)
-    extrapolate: "clamp",
-  });
 
   if (!isWelcomePressed) {
     return (
@@ -99,26 +254,37 @@ export default function IndexScreen() {
           </ThemeText>
         </View>
 
-        {/* 🧊 NEW CATCHY TEXT */}
         <ThemeText type="primtext" size="xl">
           "Only those who step forward can level up."
         </ThemeText>
 
-        <Animated.View
-          style={{ width: animatedButtonWidth, overflow: "hidden" }}
-        >
+        {/* Show BGM error if present */}
+        {bgmError && (
+          <View className="w-full max-w-sm rounded bg-red-100 p-2">
+            <ThemeText type="subtext" size="sm">
+              {`Audio Notice: ${bgmError}`}
+            </ThemeText>
+          </View>
+        )}
+
+        <View className="w-full max-w-sm">
           <Pressable
-            className="rounded bg-primary px-4 py-3"
+            className={getButtonClasses(
+              buttonStates.welcomeButton,
+              isAnimating.isAnimatingWelcome,
+            )}
             onPress={openSoloTrain}
             disabled={isAnimating.isAnimatingWelcome}
           >
-            <ThemeText type="primtext">
-              {isAnimating.isAnimatingWelcome
-                ? " "
-                : "Tap to Begin Your Solo Training"}
-            </ThemeText>
+            <View className="items-center">
+              <ThemeText type="primtext">
+                {isAnimating.isAnimatingWelcome
+                  ? "Opening SoloTrain..."
+                  : "Tap to Begin Your Solo Training"}
+              </ThemeText>
+            </View>
           </Pressable>
-        </Animated.View>
+        </View>
       </View>
     );
   }
@@ -142,30 +308,41 @@ export default function IndexScreen() {
         </Text>
       </View>
 
-      <Animated.View
-        style={{
-          width: animatedButtonWidth2,
-          overflow: "hidden",
-        }}
-      >
+      {/* Show BGM error if present */}
+      {bgmError && (
+        <View className="mb-2 w-full max-w-sm rounded bg-yellow-100 p-2">
+          <ThemeText type="subtext" size="sm">
+            Audio Notice: Background music is unavailable, but training
+            continues!
+          </ThemeText>
+        </View>
+      )}
+
+      <View className="w-full max-w-sm">
         <Pressable
-          className={`rounded bg-primary px-4 py-3 transition-all duration-75 ease-in-out hover:bg-primary/90 ${
-            isAnimating.isAnimatingSoloTrain ? "opacity-80" : ""
-          }`}
+          className={getButtonClasses(
+            buttonStates.trainingButton,
+            isAnimating.isAnimatingSoloTrain,
+          )}
           onPress={navigateToRegister}
           disabled={isAnimating.isAnimatingSoloTrain}
         >
           <View className="items-center">
             <ThemeText type="primtext">
-              {isAnimating.isAnimatingSoloTrain ? " " : "Start Training"}
+              {isAnimating.isAnimatingSoloTrain
+                ? "Loading..."
+                : "Start Training"}
             </ThemeText>
           </View>
         </Pressable>
-      </Animated.View>
+      </View>
 
       <View className="flex-row items-center gap-2 text-sm">
         <ThemeText type="subtext">Already a hunter?</ThemeText>
-        <Pressable onPress={navigateToLogin}>
+        <Pressable
+          onPress={navigateToLogin}
+          className="transition-opacity duration-150 active:opacity-70"
+        >
           <ThemeText type="accent">Login</ThemeText>
         </Pressable>
       </View>

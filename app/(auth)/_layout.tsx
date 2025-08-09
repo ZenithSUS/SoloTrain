@@ -1,7 +1,6 @@
 import { playBGM, prepareBGM, stopBGM } from "@/hooks/useBGM";
 import { Stack, usePathname } from "expo-router";
 import React, { useEffect } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const Layout = () => {
   const pathname = usePathname();
@@ -20,13 +19,11 @@ const Layout = () => {
   }, [pathname]);
 
   return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" options={{ animation: "fade" }} />
-        <Stack.Screen name="register" options={{ animation: "fade" }} />
-        <Stack.Screen name="forgot" options={{ animation: "fade" }} />
-      </Stack>
-    </SafeAreaProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" options={{ animation: "fade" }} />
+      <Stack.Screen name="register" options={{ animation: "fade" }} />
+      <Stack.Screen name="forgot" options={{ animation: "fade" }} />
+    </Stack>
   );
 };
 

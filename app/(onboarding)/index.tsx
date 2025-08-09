@@ -1,10 +1,10 @@
 import SoloTrain from "@/assets/images/SoloTrain.png";
 import ThemeText from "@/components/themetext";
+import { useSimpleAnimation } from "@/hooks/useSimpleAnimation";
+import { getButtonClasses } from "@/utils/get-button-classes";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
-  Dimensions,
   Image,
   ImageSourcePropType,
   KeyboardAvoidingView,
@@ -13,28 +13,14 @@ import {
   Text,
 } from "react-native";
 
-const { width: screenWidth } = Dimensions.get("window");
-
 const Onboarding = () => {
-  const [isAnimating, setIsAnimating] = useState(false);
-  const buttonWidthAnim = useRef(new Animated.Value(1)).current;
-
-  const animatedButtonWidth = buttonWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, screenWidth - 40],
-    extrapolate: "clamp",
-  });
-
+  const [buttonState, setButtonState] = useState("visible");
+  const { animate: animateNext, isAnimating } = useSimpleAnimation(250);
   const next = () => {
     if (isAnimating) return;
-    setIsAnimating(true);
 
-    Animated.timing(buttonWidthAnim, {
-      toValue: 0,
-      duration: 500,
-      useNativeDriver: false,
-    }).start(() => {
-      setIsAnimating(false);
+    // Animate to next screen
+    animateNext(() => {
       router.push("/(onboarding)/name");
     });
   };
@@ -69,17 +55,17 @@ const Onboarding = () => {
       </ThemeText>
 
       {/*Continue Button */}
-      <Animated.View style={{ width: animatedButtonWidth, overflow: "hidden" }}>
-        <Pressable
-          className="mt-4 w-full rounded-md bg-primary px-2 py-2"
-          onPress={next}
-          disabled={isAnimating}
-        >
-          <Text className="text-center text-primtext">
-            {isAnimating ? " " : "Continue"}
-          </Text>
-        </Pressable>
-      </Animated.View>
+
+      <Pressable
+        className={`${getButtonClasses(buttonState, isAnimating)}`}
+        onPress={next}
+        disabled={isAnimating}
+        style={{ width: "100%" }}
+      >
+        <Text className="text-center text-primtext">
+          {isAnimating ? "Loading..." : "Continue"}
+        </Text>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 };

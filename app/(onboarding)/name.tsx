@@ -1,51 +1,39 @@
 import ThemeText from "@/components/themetext";
 import { useOnboardingContext } from "@/context/onboarding";
+import { useSimpleAnimation } from "@/hooks/useSimpleAnimation";
+import { getButtonClasses } from "@/utils/get-button-classes";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
   TextInput,
+  View,
 } from "react-native";
-
-const { width: screenWidth } = Dimensions.get("window");
 
 const Name = () => {
   const { data, setData } = useOnboardingContext();
+  const { isAnimating, animate } = useSimpleAnimation(250);
 
   // Local State
   const [localName, setLocalName] = useState(data.name || "");
-  const [isAnimating, setIsAnimating] = useState(false);
-  const buttonWidthAnim = useRef(new Animated.Value(1)).current;
+  const [buttonState, setButtonState] = useState("visible");
 
   const next = async () => {
-    if (isAnimating) return;
+    if (isAnimating || !localName) return;
 
     // Update context with local value before navigation
     setData({ ...data, name: localName });
 
-    setIsAnimating(true);
-    Animated.timing(buttonWidthAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start(async () => {
-      setIsAnimating(false);
+    setButtonState("hiding");
 
-      buttonWidthAnim.setValue(1);
+    animate(() => {
+      setButtonState("visible");
       router.push("/(onboarding)/age");
     });
   };
-
-  const animatedButtonWidth = buttonWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, screenWidth - 40],
-    extrapolate: "clamp",
-  });
 
   return (
     <KeyboardAvoidingView
@@ -80,22 +68,20 @@ const Name = () => {
       />
 
       {/*Next Button */}
-      <Animated.View
-        style={{
-          width: animatedButtonWidth,
-          marginTop: 20,
-          overflow: "hidden", // Prevents content from spilling out during animation
-        }}
-      >
+      <View className="mt-5 w-full max-w-sm">
         <Pressable
+          className={getButtonClasses(buttonState, isAnimating)}
           onPress={next}
-          className="w-full rounded-xl bg-primary px-2 py-2 shadow-lg"
-          disabled={isAnimating}
-          style={{ minHeight: 40 }} // Maintain button height during animation
+          disabled={isAnimating || !localName}
+          style={{ opacity: isAnimating || !localName ? 0.5 : 1 }}
         >
-          <ThemeText type="title">{isAnimating ? " " : "Next"}</ThemeText>
+          <View className="items-center">
+            <ThemeText type="title">
+              {isAnimating ? "Saving..." : "Next"}
+            </ThemeText>
+          </View>
         </Pressable>
-      </Animated.View>
+      </View>
     </KeyboardAvoidingView>
   );
 };

@@ -1,9 +1,10 @@
 import ThemeText from "@/components/themetext";
 import { useOnboardingContext } from "@/context/onboarding";
+import { useSimpleAnimation } from "@/hooks/useSimpleAnimation";
+import { getButtonClasses } from "@/utils/get-button-classes";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,34 +17,24 @@ const Age = () => {
   // Onboarding Context
   const { data, setData } = useOnboardingContext();
 
+  // Animation hooks for both buttons
+  const { isAnimating: isNextAnimating, animate: animateNext } =
+    useSimpleAnimation(250);
+  const { isAnimating: isBackAnimating, animate: animateBack } =
+    useSimpleAnimation(250);
+
   // Local State
   const [localAge, setLocalAge] = useState(
     data.age !== undefined ? data.age.toString() : "",
   );
-  const [isAnimating, setIsAnimating] = useState({
-    nextAnimating: false,
-    backAnimating: false,
-  });
-
-  // Button animated width
-  const backbuttonWidthAnim = useRef(new Animated.Value(1)).current;
-  const nextbuttonWidthAnim = useRef(new Animated.Value(1)).current;
-
-  const animatedBackButtonWidth = backbuttonWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "48%"], // Use percentage for responsive width
-    extrapolate: "clamp",
-  });
-
-  const animatedNextButtonWidth = nextbuttonWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "48%"], // Use percentage for responsive width
-    extrapolate: "clamp",
+  const [buttonStates, setButtonStates] = useState({
+    backButton: "visible",
+    nextButton: "visible",
   });
 
   // Function to navigate to the next screen
   const next = () => {
-    if (isAnimating.nextAnimating) return;
+    if (isNextAnimating || !localAge) return;
 
     // Update context with local value before navigation
     const numericAge = localAge === "" ? undefined : Number(localAge);
@@ -52,52 +43,27 @@ const Age = () => {
       age: numericAge,
     });
 
-    setIsAnimating((prev) => ({
-      ...prev,
-      nextAnimating: true,
-    }));
+    setButtonStates((prev) => ({ ...prev, nextButton: "hiding" }));
 
-    Animated.timing(nextbuttonWidthAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start(async () => {
-      setIsAnimating((prev) => ({
-        ...prev,
-        nextAnimating: false,
-      }));
-      // Reset animation value for next time
-      nextbuttonWidthAnim.setValue(1);
+    animateNext(() => {
+      setButtonStates((prev) => ({ ...prev, nextButton: "visible" }));
       router.push("/(onboarding)/height");
     });
   };
 
   const back = () => {
-    if (isAnimating.backAnimating) return;
+    if (isBackAnimating) return;
 
-    // Update context with local value before navigation
     const numericAge = localAge === "" ? undefined : Number(localAge);
     setData({
       ...data,
       age: numericAge,
     });
 
-    setIsAnimating((prev) => ({
-      ...prev,
-      backAnimating: true,
-    }));
+    setButtonStates((prev) => ({ ...prev, backButton: "hiding" }));
 
-    Animated.timing(backbuttonWidthAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start(async () => {
-      setIsAnimating((prev) => ({
-        ...prev,
-        backAnimating: false,
-      }));
-      // Reset animation value for next time
-      backbuttonWidthAnim.setValue(1);
+    animateBack(() => {
+      setButtonStates((prev) => ({ ...prev, backButton: "visible" }));
       router.push("/(onboarding)/name");
     });
   };
@@ -140,42 +106,41 @@ const Age = () => {
       />
 
       {/*Navigation Buttons */}
-      <View className="mt-2 w-full flex-row justify-between">
-        <Animated.View
-          style={{
-            width: animatedBackButtonWidth,
-            overflow: "hidden", // Prevents content from spilling out during animation
-          }}
-        >
+      <View className="mt-2 w-full flex-row justify-between gap-4">
+        <View className="flex-1">
           <Pressable
+            className={getButtonClasses(
+              buttonStates.backButton,
+              isBackAnimating,
+            )}
             onPress={back}
-            className="rounded-xl bg-primary px-2 py-2 shadow-lg"
-            disabled={isAnimating.backAnimating}
-            style={{ minHeight: 40 }} // Maintain button height during animation
+            disabled={isBackAnimating}
           >
-            <ThemeText type="title">
-              {isAnimating.backAnimating ? " " : "Back"}
-            </ThemeText>
+            <View className="items-center">
+              <ThemeText type="title">
+                {isBackAnimating ? "Loading..." : "Back"}
+              </ThemeText>
+            </View>
           </Pressable>
-        </Animated.View>
+        </View>
 
-        <Animated.View
-          style={{
-            width: animatedNextButtonWidth,
-            overflow: "hidden", // Prevents content from spilling out during animation
-          }}
-        >
+        <View className="flex-1">
           <Pressable
+            className={getButtonClasses(
+              buttonStates.nextButton,
+              isNextAnimating,
+            )}
             onPress={next}
-            className="rounded-xl bg-primary px-2 py-2 shadow-lg"
-            disabled={isAnimating.nextAnimating}
-            style={{ minHeight: 40 }} // Maintain button height during animation
+            disabled={isNextAnimating || !localAge}
+            style={{ opacity: localAge && !isNextAnimating ? 1 : 0.5 }}
           >
-            <ThemeText type="title">
-              {isAnimating.nextAnimating ? " " : "Next"}
-            </ThemeText>
+            <View className="items-center">
+              <ThemeText type="title">
+                {isNextAnimating ? "Saving..." : "Next"}
+              </ThemeText>
+            </View>
           </Pressable>
-        </Animated.View>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );

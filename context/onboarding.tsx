@@ -1,6 +1,6 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 
-type OnboardingData = {
+export type OnboardingData = {
   name?: string;
   age?: number;
   height?: number;
@@ -10,7 +10,7 @@ type OnboardingData = {
 
 const OnboardingContext = createContext<{
   data: OnboardingData;
-  setData: (data: OnboardingData) => void;
+  setData: (update: Partial<OnboardingData>) => void;
 }>({
   data: {},
   setData: () => {},
@@ -21,9 +21,16 @@ export const OnboardingProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [data, setData] = useState<OnboardingData>({});
+  const [data, setDataState] = useState<OnboardingData>({});
+
+  const setData = (update: Partial<OnboardingData>) => {
+    setDataState((prev) => ({ ...prev, ...update }));
+  };
+
+  const value = useMemo(() => ({ data, setData }), [data]);
+
   return (
-    <OnboardingContext.Provider value={{ data, setData }}>
+    <OnboardingContext.Provider value={value}>
       {children}
     </OnboardingContext.Provider>
   );
