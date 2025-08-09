@@ -3,16 +3,7 @@ import { Platform } from "react-native";
 
 let sound: Audio.Sound | null = null;
 
-export const loadAndPlayBGM = async (musicFile: AVPlaybackSource) => {
-  if (sound !== null) return;
-
-  sound = new Audio.Sound();
-  await sound.loadAsync(musicFile);
-  await sound.setIsLoopingAsync(true);
-  await sound.setVolumeAsync(0.2);
-  await sound.playAsync();
-};
-
+// Prepare BGM
 export const prepareBGM = async (musicFile: AVPlaybackSource) => {
   if (sound === null) {
     sound = new Audio.Sound();
@@ -20,7 +11,6 @@ export const prepareBGM = async (musicFile: AVPlaybackSource) => {
     await sound.setIsLoopingAsync(true);
     await sound.setVolumeAsync(0.2);
 
-    // 👇 Add click event listener for web to allow playback
     if (Platform.OS === "web") {
       document.body.addEventListener(
         "click",
@@ -35,6 +25,7 @@ export const prepareBGM = async (musicFile: AVPlaybackSource) => {
   }
 };
 
+// Play BGM
 export const playBGM = async () => {
   if (sound) {
     try {
@@ -45,10 +36,33 @@ export const playBGM = async () => {
   }
 };
 
+// Stop BGM
 export const stopBGM = async () => {
   if (sound) {
     await sound.stopAsync();
     await sound.unloadAsync();
     sound = null;
+  }
+};
+
+// Check if BGM is playing
+export const isBGMPlaying = async (): Promise<boolean> => {
+  if (sound) {
+    try {
+      return await sound
+        .getStatusAsync()
+        .then((status) => status.isLoaded ?? false);
+    } catch (e) {
+      console.warn("Error checking BGM status:", e);
+      return false;
+    }
+  }
+  return false;
+};
+
+// Pause BGM
+export const pauseBGM = async () => {
+  if (sound) {
+    await sound.pauseAsync();
   }
 };

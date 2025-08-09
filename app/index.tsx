@@ -190,8 +190,8 @@ export default function IndexScreen() {
             "There was an issue navigating to the next screen. Please try again.",
             [{ text: "OK", style: "default" }],
           );
-
-          // Reset states on navigation error
+        } finally {
+          // Reset states regardless of navigation result
           setIsAnimating((prev) => ({
             ...prev,
             isAnimatingSoloTrain: false,
